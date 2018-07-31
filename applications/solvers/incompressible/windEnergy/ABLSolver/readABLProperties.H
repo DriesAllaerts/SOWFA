@@ -247,6 +247,9 @@
 
     // PROPERTIES CONCERNING GATHERING STATISTICS
 
+       // Subtract out the mean velocity.
+       bool subtractMeanVerticalVelocity(ABLProperties.lookupOrDefault<bool>("subtractMeanVerticalVelocity", false));
+
        // Gather/write statistics?
        bool statisticsOn(ABLProperties.lookupOrDefault<bool>("statisticsOn", false));
 

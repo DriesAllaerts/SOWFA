@@ -112,6 +112,7 @@ int main(int argc, char *argv[])
         {
             Info << "   Predictor..." << endl;
             #include "UEqn.H"
+            #include "correctMeanVerticalVelocity.H"
             #include "turbulenceCorrect.H"
             #include "TEqn.H"
 
@@ -121,6 +122,7 @@ int main(int argc, char *argv[])
             {
                 Info << "   Corrector Step " << corr << "..." << endl;
                 #include "pEqn.H"
+                #include "correctMeanVerticalVelocity.H"
                 #include "turbulenceCorrect.H"
                 #include "TEqn.H"
                 corr++;
