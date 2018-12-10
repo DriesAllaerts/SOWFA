@@ -31,3 +31,29 @@
 
     // ALL OTHER PROPERTIES ARE READ IN INDIVIDUAL CLASS OBJECTS
     label upIndex = 2;
+
+    // READ EDDY VISCOSITY PROFILE
+    List<scalar> eddyViscositySpecified(ABLProperties.lookup("eddyViscosityProfile"));
+    volScalarField effEddyViscosity
+    (
+        IOobject
+        (
+            "effEddyViscosity",
+            runTime.timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionedScalar("efEddyViscosity",dimensionSet(0,2,-1,0,0,0,0),0.0)
+    );
+    
+    meshPlanes zPlanes = meshPlanes(mesh);
+    forAllPlanes(zPlanes,planeI)
+    {
+        for (label i = 0; i < zPlanes.numCellPerPlane()[planeI]; i++)
+        {
+            label cellI = zPlanes.planesCellList()[planeI][i];
+            effEddyViscosity[cellI] = eddyViscositySpecified[planeI];
+        }
+    }

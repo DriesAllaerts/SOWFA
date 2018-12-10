@@ -21,4 +21,5 @@ EXE_LIBS = \
     -lmeshTools \
     -lfvOptions \
     -lsampling \
-    -luserABLForcing 
+    -luserABLForcing \
+    -lusermeshTools

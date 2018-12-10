@@ -55,6 +55,7 @@ Description
 #include "wallDist.H"
 #include "interpolateSplineXY.H"
 #include "ABL.H"
+#include "meshPlanes.H"
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

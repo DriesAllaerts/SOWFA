@@ -15,7 +15,8 @@
       + fvm::div(phi, U)                        // convection
       + turbulence->divDevReff(U)               // momentum flux
       + fvc::div(Rwall)
-      - Coriolis.force()                        // Coriolis force
+      - fvc::laplacian(effEddyViscosity,U)
+//      - Coriolis.force()                        // Coriolis force
       - sponge.force()                          // Sponge layer damping
       - momentumSourceTerm.force()              // mesoscale source terms
     );
