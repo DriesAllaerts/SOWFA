@@ -74,6 +74,11 @@
     DrivingForce<vector> momentumSourceTerm("momentum",U);
 
 
+    // Allow for additional nudging
+    DrivingForce<scalar> temperatureNudging("TNudging",T);
+    DrivingForce<vector> momentumNudging("UNudging",U);
+
+
     // Create and read the turbulent thermal conductivity field
     Info << "Creating the kinematic thermal conductivity field, kappat..." << endl;
     volScalarField kappat

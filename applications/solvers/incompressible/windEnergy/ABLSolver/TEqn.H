@@ -11,6 +11,7 @@
       - fvm::laplacian(kappaEff, T)
       - fvc::div(qwall)
       - temperatureSourceTerm.force()
+      - temperatureNudging.force()
     );
 
     TEqn.relax();

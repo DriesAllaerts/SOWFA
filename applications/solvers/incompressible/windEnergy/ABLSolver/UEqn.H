@@ -18,6 +18,7 @@
       - Coriolis.force()                        // Coriolis force
       - sponge.force()                          // Sponge layer damping
       - momentumSourceTerm.force()              // mesoscale source terms
+      - momentumNudging.force()              // nudging
     );
 
     UEqn.relax();
