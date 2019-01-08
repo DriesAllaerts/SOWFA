@@ -120,6 +120,8 @@ int main(int argc, char *argv[])
             // --- Update the source terms
             momentumSourceTerm.update();
             temperatureSourceTerm.update();
+            temperatureNudging.update();
+            momentumNudging.update();
 
             // --- Compute the velocity flux divergence
             #include "computeDivergence.H"
