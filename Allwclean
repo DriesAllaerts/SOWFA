@@ -6,6 +6,11 @@ rmdepall
 wclean
 cd ../../../../
 
+cd src/turbulenceModels/incompressible/RAS/
+rmdepall
+wclean
+cd ../../../../
+
 cd src/turbineModels/turbineModelsStandard
 rmdepall
 wclean
