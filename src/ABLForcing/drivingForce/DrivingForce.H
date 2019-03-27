@@ -39,6 +39,7 @@ SourceFiles
 #include "IOdictionary.H"
 #include "meshPlanes.H"
 #include "interpolate2D.H"
+#include "interpolateXY.H"
 #include "windRoseToCartesian.H"
 #include "scalarMatrices.H"
 
@@ -119,13 +120,16 @@ class DrivingForce
         scalar gain_;
 
         //- Time scale of PI controller weighting function
-        scalar Tw_;
+        scalar timeWindow_;
 
         //- Weighted regression
         label Nreg_;
         List<scalar> weights_;
         scalarRectangularMatrix Areg_;
         scalarRectangularMatrix betaInt_;
+
+        //- Write error profile?
+        bool writeError_;
 
         //- Gather/write statistics?
         bool statisticsOn_;
@@ -158,7 +162,7 @@ class DrivingForce
         //- Read source tables (componentwise)
         void readSourceTables_
         (
-            IOdictionary& ABLProperties,
+            const dictionary& sourceDict,
             label& nSourceHeights
         );
             

@@ -119,7 +119,7 @@ void Foam::DrivingForce<Type>::updateComputedTimeDepSource_()
     Type ds = (fldMeanDesired - fldMean) / dt;
 
     // Apply the relaxation
-    ds *= alpha_;
+    ds *= gain_;
 
     // Update the source term
     forAll(bodyForce_,cellI)
@@ -250,7 +250,7 @@ void Foam::DrivingForce<Type>::writeErrorHistory_
     // Write the column of source information.
     if (Pstream::master())
     {
-        if (statisticsOn_)
+        if (writeError_)
         {
             if (runTime_.timeIndex() % statisticsFreq_ == 0)
             {
@@ -316,7 +316,8 @@ void Foam::DrivingForce<Type>::readInputData_()
         )
     );
 
-    // PROPERTIES CONCERNING THE SOURCE TERMS.
+    // PROPERTIES CONCERNING THE SOURCE TERM.
+    const dictionary& sourceDict(ABLProperties.subOrEmptyDict(name_ & "Source"));
 
     // Specify the type of source to use.  The
     // possible types are "given" and "computed".  
@@ -324,16 +325,17 @@ void Foam::DrivingForce<Type>::readInputData_()
     //   and the momentum and temperature fields will react accordingly.  
     // - The "computed" type means that the mean velocity and temperature
     //   are given and the source terms that maintain them are computed. 
-    word sourceType(ABLProperties.lookup(name_ & "SourceType"));
+    word sourceType(sourceDict.lookup("type"));
     sourceType_ = sourceType;
     
+
     // If giving the velocity and computing the sources, specify how the velocity
     // is given.  "component" means you enter the x, y, anc z components.
     // "speedAndDirection" means that you enter the horizontal wind speed, horizontal
     // direction, and vertical component.
     if (name_ == "momentum")
     {
-        word velocityInputType(ABLProperties.lookup("velocityInputType"));
+        word velocityInputType(sourceDict.lookup("inputType"));
         velocityInputType_ = velocityInputType;
     }
     else
@@ -341,29 +343,61 @@ void Foam::DrivingForce<Type>::readInputData_()
         velocityInputType_ = "component";
     }
     
+
     // Read in the heights at which the sources are given.
-    sourceHeightsSpecified_ = ABLProperties.lookup("sourceHeights" & name_);
+    sourceHeightsSpecified_ = sourceDict.lookup("sourceHeights" & name_);
     label nSourceHeights = sourceHeightsSpecified_.size();
 
 
     // Read in the source table(s) vs. time and height
-    readSourceTables_(ABLProperties,nSourceHeights);
+    readSourceTables_(sourceDict,nSourceHeights);
 
-    // Read in controller properties.
-    label Nreg(ABLProperties.lookupOrDefault<label>("regOrder" & name_,1));
-    scalar alpha(ABLProperties.lookupOrDefault<scalar>("alpha" & name_,1.0));
-    scalar gain(ABLProperties.lookupOrDefault<scalar>("gain" & name_,1.0));
-    scalar Tw(ABLProperties.lookupOrDefault<scalar>("Tw" & name_,1.0));
-    Nreg_ = Nreg;
-    alpha_ = alpha;
+
+    // Read in the controller gain
+    scalar gain(sourceDict.lookupOrDefault<scalar>("gain",1.0));
     gain_ = gain;
-    Tw_ = Tw;
-    
-    // Initialize controller
-    if (sourceType_ == "computed")
+
+
+    // Profile assimilation
+    if ((sourceType_ == "computed") && (nSourceHeights > 1))
     {
+        // Read in the controller parameters
+        label Nreg(sourceDict.lookupOrDefault<label>("regOrder",1));
+        Nreg_ = Nreg;
+
+        scalar alpha(sourceDict.lookupOrDefault<scalar>("alpha",1.0));
+        alpha_ = alpha;
+
+        scalar timeWindow(sourceDict.lookupOrDefault<scalar>("timeWindow",1.0));
+        timeWindow_ = timeWindow;
+        
+        // Read in weights from table
+        List<List<scalar> > weightsTable(sourceDict.lookup("weightsTable"));
+        // Change from scalar lists to scalar fields
+        scalarField heights(weightsTable.size(),0.0);
+        scalarField weights(weightsTable.size(),0.0);
+        forAll(heights,i)
+        {
+           heights[i] = weightsTable[i][0];
+           weights[i] = weightsTable[i][1];
+        }
+        // Interpolate to planes
+        forAllPlanes(zPlanes_,planeI)
+        {
+            weights_.append(
+                    interpolateXY(zPlanes_.planeLocationValues()[planeI],heights,weights)
+                            );
+        }
+
+
+        // Initialize controller
         initializeController_(nSourceHeights);
+
+        // Write out error profile? 
+        bool writeError(sourceDict.lookupOrDefault<bool>("writeError",false));
+        writeError_ = writeError;
     }
+
 
     // If the desired mean wind or temperature is given at only one height, then revert to
     // the old way of specifying the source term.  Find the two grid levels that bracket
@@ -390,7 +424,7 @@ void Foam::DrivingForce<Type>::readInputData_()
 template<class Type>
 void Foam::DrivingForce<Type>::readSourceTables_
 (
-    IOdictionary& ABLProperties,
+    const dictionary& sourceDict,
     label& nSourceHeights
 )
 {
@@ -401,7 +435,7 @@ void Foam::DrivingForce<Type>::readSourceTables_
         word sourceTableName = ("sourceTable" & name_) & Type::componentNames[i];
 
         Info << "Reading " << sourceTableName << endl;
-        List<List<scalar> > sourceTable( ABLProperties.lookup(sourceTableName) );
+        List<List<scalar> > sourceTable( sourceDict.lookup(sourceTableName) );
 
         checkSourceTableSize_( sourceTableName, sourceTable, nSourceHeights);
 
@@ -438,14 +472,14 @@ namespace Foam
     template<>
     void DrivingForce<scalar>::readSourceTables_
     (
-        IOdictionary& ABLProperties,
+        const dictionary& sourceDict,
         label& nSourceHeights
     )
     {
         word sourceTableName = "sourceTable" & name_;
 
         Info << "Reading " << sourceTableName << endl;
-        List<List<scalar> > sourceTable( ABLProperties.lookup(sourceTableName) );
+        List<List<scalar> > sourceTable( sourceDict.lookup(sourceTableName) );
 
         checkSourceTableSize_( sourceTableName, sourceTable, nSourceHeights);
     
@@ -582,22 +616,25 @@ void Foam::DrivingForce<Type>::openFiles_()
         }
 
         sourceHistoryFile_() << "Time(s)" << " " << "dt (s)" << " " << "source term " << bodyForce_.dimensions() << endl;
-
-        //File for saving the error
-        word errorFileName = ("Error" & name_) & "History";
-        errorHistoryFile_.reset(new OFstream(outputPath/errorFileName));
         
-        if (sourceHeightsSpecified_.size() > 1)
+        //File for saving the error
+        if (writeError_)
         {
-            errorHistoryFile_() << "Heights (m) ";
-            forAllPlanes(zPlanes_,planeI)
+            word errorFileName = ("Error" & name_) & "History";
+            errorHistoryFile_.reset(new OFstream(outputPath/errorFileName));
+            
+            if (sourceHeightsSpecified_.size() > 1)
             {
-                errorHistoryFile_() << zPlanes_.planeLocationValues()[planeI] << " ";
+                errorHistoryFile_() << "Heights (m) ";
+                forAllPlanes(zPlanes_,planeI)
+                {
+                    errorHistoryFile_() << zPlanes_.planeLocationValues()[planeI] << " ";
+                }
+                errorHistoryFile_() << endl;
             }
-            errorHistoryFile_() << endl;
-        }
 
-        errorHistoryFile_() << "Time(s)" << " " << "dt (s)" << " " << "error term " << endl;
+            errorHistoryFile_() << "Time(s)" << " " << "dt (s)" << " " << "error term " << endl;
+        }
     }
 }
 
