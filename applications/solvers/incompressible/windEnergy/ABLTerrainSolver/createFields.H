@@ -141,7 +141,9 @@
 
 
     // Create sponge layer object
-    spongeLayer sponge("upperSponge",U);
+    spongeLayer upperSponge("upperSponge",U);
+    spongeLayer westSponge("westSponge",U);
+    spongeLayer eastSponge("eastSponge",U);
 
 
     // Create and calculate the Boussinesq density field for computing buoyancy forces

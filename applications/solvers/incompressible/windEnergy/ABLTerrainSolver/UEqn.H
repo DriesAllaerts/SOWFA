@@ -6,7 +6,9 @@
     #include "computeBuoyancyTerm.H"
 
     // Update sponge layer forcing
-    sponge.update();
+    upperSponge.update();
+    eastSponge.update();
+    westSponge.update();
 
     fvVectorMatrix UEqn
     (
@@ -15,7 +17,9 @@
       + turbulence->divDevReff(U)               // momentum flux
       + fvc::div(Rwall)
       - fCoriolis                               // Coriolis force
-      - sponge.force()                          // Sponge layer damping
+      - upperSponge.force()                          // Sponge layer damping
+      - eastSponge.force()                          // Sponge layer damping
+      - westSponge.force()                          // Sponge layer damping
       + gradP                                   // driving pressure gradient
     );
 
